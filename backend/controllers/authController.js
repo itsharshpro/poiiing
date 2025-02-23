@@ -1,0 +1,52 @@
+const User = require('../models/User');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+
+const generateToken = (id) => {
+    return jwt.sign({id}, process.env.JWT_SECRET, {expiresIn: '1h'});
+}
+
+exports.registerUser = async (req, res) => {
+    const {username, fullName, email, password, profileImageUrl} = req.body;
+
+    if(!fullName || !username || !email || !password){
+        return res.status(400).json({message: "All fields are required"});
+    }
+    
+
+    const usernameRegex = /^[a-zA-Z0-9-]+$/;
+    if(!usernameRegex.test(username)){
+        return res.status(400).json({
+            message: "Invalid username, only alphanumeric characters and hyphens are allowed. No spaces are permitted"
+        });
+    }
+
+    try {
+        const existingUser = await User.findOne({email});
+        if(existingUser){
+            return res.status(400).json({message: "Email already in use"});
+        }
+
+        const existingUsername = await User.findOne({username});
+        if(existingUsername){
+            return res.status(400).json({message: "Username not available. Try another one."});
+        }
+        
+
+        const user = await User.create({
+            fullName,
+            username,
+            email,
+            password,
+            profileImageUrl,
+        })
+        
+        res.status(201).json({
+            id: user._id,
+            user,
+            token: generateToken(user._id),
+        });
+    } catch (err) {
+        res.status(500).json({message: "Error registering user", error: err.message});
+    }
+}
